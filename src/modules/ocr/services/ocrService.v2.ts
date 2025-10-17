@@ -84,12 +84,24 @@ class OCRServiceV2 {
       throw new Error('Backend no disponible');
     }
 
-    const formData = new FormData();
-    formData.append('file', file);
+    // En producción: enviar base64 como JSON, en desarrollo: FormData
+    let body: FormData | string;
+    let headers: Record<string, string> = {};
+    
+    if (isProduction) {
+      const base64 = await this.fileToBase64(file);
+      body = JSON.stringify({ image: base64 });
+      headers['Content-Type'] = 'application/json';
+    } else {
+      const formData = new FormData();
+      formData.append('file', file);
+      body = formData;
+    }
 
     const response = await fetch(OCR_ENDPOINT, {
       method: 'POST',
-      body: formData,
+      headers,
+      body,
       signal: AbortSignal.timeout(30000) // 30s timeout
     });
 
@@ -109,6 +121,22 @@ class OCRServiceV2 {
       datos_extraidos: data.datos_extraidos,
       procesador: 'google_vision'
     };
+  }
+
+  /**
+   * Convierte archivo a base64
+   */
+  private fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        const base64Clean = base64.split(',')[1];
+        resolve(base64Clean);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
   }
 
   /**

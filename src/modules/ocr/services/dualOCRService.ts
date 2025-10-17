@@ -123,12 +123,25 @@ async function processWithNodeJS(file: File): Promise<OCRResult> {
     
     console.log('🔗 Usando Node.js server:', isProduction ? 'Vercel (producción)' : apiUrl);
 
-    const formData = new FormData();
-    formData.append('file', file);
+    // En producción (Vercel): enviar base64 como JSON
+    // En desarrollo (local): enviar FormData
+    let body: FormData | string;
+    let headers: Record<string, string> = {};
+    
+    if (isProduction) {
+      const base64 = await fileToBase64(file);
+      body = JSON.stringify({ image: base64 });
+      headers['Content-Type'] = 'application/json';
+    } else {
+      const formData = new FormData();
+      formData.append('file', file);
+      body = formData;
+    }
 
     const response = await fetch(endpoint, {
       method: 'POST',
-      body: formData,
+      headers,
+      body,
     });
 
     if (!response.ok) {
