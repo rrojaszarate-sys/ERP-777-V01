@@ -1687,6 +1687,9 @@ export const DualOCRExpenseForm: React.FC<DualOCRExpenseFormProps> = ({
         } else {
           console.log('✅ Imagen guardada en bucket:', uploadData.path);
         }
+        
+        // IMPORTANTE: Actualizar referencia para usar imagen comprimida en OCR
+        file = processedFile;
       }
       
       // ============================================
