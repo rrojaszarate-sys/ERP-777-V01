@@ -112,17 +112,21 @@ async function processWithSupabase(file: File): Promise<OCRResult> {
 }
 
 /**
- * Procesa con servidor Node.js local
+ * Procesa con servidor Node.js local o Vercel
  */
 async function processWithNodeJS(file: File): Promise<OCRResult> {
   try {
-    const apiUrl = import.meta.env.VITE_OCR_API_URL || 'http://localhost:3001';
-    console.log('🔗 Usando Node.js server:', apiUrl);
+    // Detectar si estamos en producción (Vercel) o desarrollo (local)
+    const isProduction = import.meta.env.PROD || window.location.hostname !== 'localhost';
+    const apiUrl = import.meta.env.VITE_OCR_API_URL || (isProduction ? '' : 'http://localhost:3001');
+    const endpoint = isProduction ? '/api/ocr-process' : `${apiUrl}/api/ocr/process`;
+    
+    console.log('🔗 Usando Node.js server:', isProduction ? 'Vercel (producción)' : apiUrl);
 
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${apiUrl}/api/ocr/process`, {
+    const response = await fetch(endpoint, {
       method: 'POST',
       body: formData,
     });
@@ -185,7 +189,8 @@ export function getOCRProvider(): 'supabase' | 'nodejs' | 'tesseract' {
  */
 export function useOCRInfo() {
   const provider = getOCRProvider();
-  const apiUrl = import.meta.env.VITE_OCR_API_URL || 'http://localhost:3001';
+  const isProduction = import.meta.env.PROD || window.location.hostname !== 'localhost';
+  const apiUrl = import.meta.env.VITE_OCR_API_URL || (isProduction ? window.location.origin : 'http://localhost:3001');
   
   return {
     provider,
@@ -193,7 +198,7 @@ export function useOCRInfo() {
     displayName: provider === 'supabase' 
       ? 'Supabase Edge Function' 
       : provider === 'nodejs'
-      ? 'Node.js Local Server'
+      ? isProduction ? 'Vercel Serverless' : 'Node.js Local Server'
       : 'Tesseract Only',
   };
 }

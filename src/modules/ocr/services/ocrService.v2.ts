@@ -14,7 +14,10 @@
 import Tesseract from 'tesseract.js';
 import { ImagePreprocessor } from '../utils/imagePreprocessor';
 
-const OCR_API_URL = import.meta.env.VITE_OCR_API_URL || 'http://localhost:3001';
+// Detectar si estamos en producción (Vercel) o desarrollo (local)
+const isProduction = import.meta.env.PROD || (typeof window !== 'undefined' && window.location.hostname !== 'localhost');
+const OCR_API_URL = import.meta.env.VITE_OCR_API_URL || (isProduction ? '' : 'http://localhost:3001');
+const OCR_ENDPOINT = isProduction ? '/api/ocr-process' : `${OCR_API_URL}/api/ocr/process`;
 
 export interface OCRResult {
   success: boolean;
@@ -84,7 +87,7 @@ class OCRServiceV2 {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${OCR_API_URL}/api/ocr/process`, {
+    const response = await fetch(OCR_ENDPOINT, {
       method: 'POST',
       body: formData,
       signal: AbortSignal.timeout(30000) // 30s timeout
