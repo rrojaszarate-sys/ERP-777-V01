@@ -155,8 +155,26 @@ async function processWithNodeJS(file: File): Promise<OCRResult> {
       throw new Error(errorData.message || errorData.error || `HTTP ${response.status}`);
     }
 
-    const result: OCRResult = await response.json();
-    console.log(`✅ Node.js OCR: ${result.confianza_general}% confianza, ${result.lineas.length} líneas`);
+    const rawResult = await response.json();
+    
+    // Adaptar respuesta de Vercel al formato esperado
+    let result: OCRResult;
+    if (isProduction && rawResult.success !== undefined) {
+      // Formato de Vercel: {success, text, data, confidence}
+      result = {
+        texto_completo: rawResult.text || '',
+        confianza_general: Math.round((rawResult.confidence || 0) * 100),
+        lineas: rawResult.text ? rawResult.text.split('\n') : [],
+        datos_extraidos: rawResult.data || {},
+      };
+    } else {
+      // Formato local: {texto_completo, confianza_general, lineas, datos_extraidos}
+      result = rawResult;
+    }
+    
+    const lineas = result.lineas?.length || 0;
+    const confianza = result.confianza_general || 0;
+    console.log(`✅ Node.js OCR: ${confianza}% confianza${lineas > 0 ? `, ${lineas} líneas` : ''}`);
 
     return result;
   } catch (error) {
