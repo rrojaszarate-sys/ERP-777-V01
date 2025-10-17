@@ -16,7 +16,7 @@ function parseGoogleKey(raw) {
 
   // Si viene base64, detectarlo y decodificar
   const base64Match = raw.trim().match(/^\s*([A-Za-z0-9+/=\n\r]+)\s*$/);
-  if (base64Match) {
+  if (base64Match && !raw.includes('{')) {
     try {
       const decoded = Buffer.from(raw, 'base64').toString('utf8');
       const parsed = JSON.parse(decoded);
@@ -26,23 +26,27 @@ function parseGoogleKey(raw) {
     }
   }
 
-  // Reemplazar secuencias de escape "\\n" por nuevas líneas reales
-  let candidate = raw.replace(/\\n/g, '\n');
-
-  // Intentar parsear directo
+  // Primer intento: parsear directo (por si ya viene como JSON válido)
   try {
-    return JSON.parse(candidate);
-  } catch (e) {
-    // Intentar eliminar comillas alrededor si existen
-    const trimmed = candidate.trim();
-    if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
-      try {
-        return JSON.parse(trimmed.slice(1, -1));
-      } catch (e2) {
-        return null;
+    return JSON.parse(raw);
+  } catch (e1) {
+    // Segundo intento: reemplazar \\n por \n y parsear
+    try {
+      const withNewlines = raw.replace(/\\n/g, '\n');
+      return JSON.parse(withNewlines);
+    } catch (e2) {
+      // Tercer intento: eliminar comillas externas si existen
+      const trimmed = raw.trim();
+      if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+        try {
+          const unquoted = trimmed.slice(1, -1);
+          return JSON.parse(unquoted.replace(/\\n/g, '\n'));
+        } catch (e3) {
+          return null;
+        }
       }
+      return null;
     }
-    return null;
   }
 }
 
