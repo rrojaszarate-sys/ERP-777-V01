@@ -11,14 +11,49 @@ import vision from '@google-cloud/vision';
 // Inicializar cliente de Google Vision
 let visionClient = null;
 
+function parseGoogleKey(raw) {
+  if (!raw) return null;
+
+  // Si viene base64, detectarlo y decodificar
+  const base64Match = raw.trim().match(/^\s*([A-Za-z0-9+/=\n\r]+)\s*$/);
+  if (base64Match) {
+    try {
+      const decoded = Buffer.from(raw, 'base64').toString('utf8');
+      const parsed = JSON.parse(decoded);
+      return parsed;
+    } catch (e) {
+      // no es base64 válido -> continuar
+    }
+  }
+
+  // Reemplazar secuencias de escape "\\n" por nuevas líneas reales
+  let candidate = raw.replace(/\\n/g, '\n');
+
+  // Intentar parsear directo
+  try {
+    return JSON.parse(candidate);
+  } catch (e) {
+    // Intentar eliminar comillas alrededor si existen
+    const trimmed = candidate.trim();
+    if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+      try {
+        return JSON.parse(trimmed.slice(1, -1));
+      } catch (e2) {
+        return null;
+      }
+    }
+    return null;
+  }
+}
+
 function getVisionClient() {
   if (!visionClient) {
     try {
-      // Obtener credenciales desde variable de entorno
-      const credentials = JSON.parse(process.env.VITE_GOOGLE_SERVICE_ACCOUNT_KEY || '{}');
-      
-      if (!credentials.client_email) {
-        throw new Error('Google Cloud credentials not configured');
+      const raw = process.env.VITE_GOOGLE_SERVICE_ACCOUNT_KEY || '';
+      const credentials = parseGoogleKey(raw);
+
+      if (!credentials || !credentials.client_email) {
+        throw new Error('Google Cloud credentials not configured or invalid JSON');
       }
 
       visionClient = new vision.ImageAnnotatorClient({
@@ -28,7 +63,7 @@ function getVisionClient() {
 
       console.log('✅ Google Vision client initialized');
     } catch (error) {
-      console.error('❌ Error initializing Google Vision:', error);
+      console.error('❌ Error initializing Google Vision:', error.message || error);
       throw error;
     }
   }
